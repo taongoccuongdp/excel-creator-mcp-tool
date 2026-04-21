@@ -105,15 +105,25 @@ func applySheet(f *excelize.File, sheet SheetSpec, styles map[string]StyleSpec, 
 }
 
 func writeCell(f *excelize.File, sheetName string, c CellSpec, styles map[string]StyleSpec, styleCache map[string]int) error {
+	// display value of cell at default
 	displayValue := c.Value
+
+	// display the hyperlink if cell is an hyperlink type
 	if c.Hyperlink != nil && c.Hyperlink.Display != "" {
 		displayValue = c.Hyperlink.Display
 	}
 
+	// display the formula if cell is an formula
+	if c.Formula != nil {
+		displayValue = c.Formula
+	}
+
+	// set content value to cell (display value)
 	if err := setCellContent(f, sheetName, c.Ref, displayValue); err != nil {
 		return err
 	}
 
+	// set hyperlink to this cell if this cell contains a hyperlink
 	if c.Hyperlink != nil && strings.TrimSpace(c.Hyperlink.URL) != "" {
 		opts := make([]excelize.HyperlinkOpts, 0, 1)
 		if c.Hyperlink.Display != "" || c.Hyperlink.Tooltip != "" {
@@ -131,6 +141,28 @@ func writeCell(f *excelize.File, sheetName string, c CellSpec, styles map[string
 		}
 	}
 
+	// set formula to this cell if this cell contains a Formula
+	if c.Formula != nil && strings.TrimSpace(c.Formula.Formula) != "" {
+		opts := make([]excelize.FormulaOpts, 0, 1)
+		if c.Formula.FormulaTypeArray != "" || c.Formula.FormulaTypeDataTable != "" || c.Formula.FormulaTypeShared != "" {
+			opt := excelize.FormulaOpts{}
+			if c.Formula.FormulaTypeArray != "" {
+				opt.Type = ptr(c.Formula.FormulaTypeArray)
+			}
+			if c.Formula.FormulaTypeDataTable != "" {
+				opt.Type = ptr(c.Formula.FormulaTypeDataTable)
+			}
+			if c.Formula.FormulaTypeShared != "" {
+				opt.Type = ptr(c.Formula.FormulaTypeShared)
+			}
+			opt.Ref = ptr(c.Ref)
+			opts = append(opts, opt)
+		}
+		if err := f.SetCellFormula(sheetName, c.Ref, c.Formula.Formula, opts...); err != nil {
+			return fmt.Errorf("set formula %s: %w", c.Ref, err)
+		}
+	}
+
 	if c.StyleRef != "" {
 		styleID, err := resolveStyleID(f, styles, c.StyleRef, styleCache)
 		if err != nil {
@@ -145,6 +177,8 @@ func writeCell(f *excelize.File, sheetName string, c CellSpec, styles map[string
 }
 
 func setCellContent(f *excelize.File, sheetName string, cellRef string, value any) error {
+
+	// try to write bold rich text
 	runs, ok, err := parseHTMLBoldRichText(value)
 	if err != nil {
 		return fmt.Errorf("parse rich text %s: %w", cellRef, err)
@@ -162,6 +196,7 @@ func setCellContent(f *excelize.File, sheetName string, cellRef string, value an
 		return nil
 	}
 
+	// standard value
 	if err := f.SetCellValue(sheetName, cellRef, value); err != nil {
 		return fmt.Errorf("set value %s: %w", cellRef, err)
 	}

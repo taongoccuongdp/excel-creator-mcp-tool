@@ -62,6 +62,14 @@ type CellSpec struct {
 	Value     any            `json:"value,omitempty"`
 	StyleRef  string         `json:"style_ref,omitempty"`
 	Hyperlink *HyperlinkSpec `json:"hyperlink,omitempty"`
+	Formula   *Formula       `json:"formula,omitempty"`
+}
+
+type Formula struct {
+	Formula				 string `json:"formula"`
+	FormulaTypeArray 	 string `json:"array,omitempty"`
+	FormulaTypeDataTable string `json:"dataTable,omitempty"`
+	FormulaTypeShared	 string `json:"shared,omitempty"`
 }
 
 type HyperlinkSpec struct {
